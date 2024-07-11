@@ -70,6 +70,10 @@
 #include <xinput.h>
 #include <dbt.h>
 
+#include <hidsdi.h>
+#include <hidusage.h>
+#include <hidpi.h>
+
 // HACK: Define macros that some windows.h variants don't
 #ifndef WM_MOUSEHWHEEL
  #define WM_MOUSEHWHEEL 0x020E
@@ -435,6 +439,46 @@ typedef struct _GLFWwindowWin32
     WCHAR               highSurrogate;
 } _GLFWwindowWin32;
 
+typedef struct MultiAxisControllerReport
+{
+    uint8_t           id;
+    HIDP_BUTTON_CAPS* buttonCaps;
+    int               buttonCapCount;
+    HIDP_VALUE_CAPS*  valueCaps;
+    int               valueCapCount;
+} MultiAxisControllerReport;
+
+typedef struct MultiAxisControllerDevice
+{
+    _GLFWjoystick*             joystick;
+    int                        axisTX;
+    int                        axisTY;
+    int                        axisTZ;
+    int                        axisRX;
+    int                        axisRY;
+    int                        axisRZ;
+    MultiAxisControllerReport* reports;
+    int                        reportCount;
+    HANDLE                     deviceHandle;
+    RID_DEVICE_INFO            deviceInfo;
+    char*                      topLevelPreparsedDataBuffer;
+    char*                      topLevelPreparsedDataBufferSize;
+    PHIDP_PREPARSED_DATA       topLevelPreparsedData; // typedef struct _HIDP_PREPARSED_DATA * PHIDP_PREPARSED_DATA
+    HIDP_CAPS                  topLevelCaps;
+    HIDP_BUTTON_CAPS*          inputButtonCaps;
+    int                        inputButtonCapCount;
+    HIDP_VALUE_CAPS*           inputValueCaps;
+    int                        inputValueCapCount;
+    HIDP_BUTTON_CAPS*          featureButtonCaps;
+    int                        featureButtonCapCOunt;
+    HIDP_VALUE_CAPS*           featureValueCaps;
+    int                        featureVlaueCapCount;
+    HIDP_LINK_COLLECTION_NODE* linkCollections;
+    int                        linkCollectionCount;
+    long                       buttonState;
+    USAGE*                     buttonUsages;
+} MultiAxisControllerDevice;
+
 // Win32-specific global data
 //
 typedef struct _GLFWlibraryWin32
@@ -460,6 +504,9 @@ typedef struct _GLFWlibraryWin32
     UINT                mouseTrailSize;
     // The cursor handle to use to hide the cursor (NULL or a transparent cursor)
     HCURSOR             blankCursor;
+
+    MultiAxisControllerDevice* multiaxiscontrollerDevices;
+    int                        multiaxiscontrollerDeviceCount;
 
     struct {
         HINSTANCE                       instance;

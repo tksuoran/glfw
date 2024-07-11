@@ -146,6 +146,7 @@ endif()
 
 if (GLFW_BUILD_WIN32)
     list(APPEND glfw_PKG_LIBS "-lgdi32")
+    list(APPEND glfw_PKG_LIBS "-lhid") # TODO How do I add hid.lib?
 endif()
 
 if (GLFW_BUILD_COCOA)

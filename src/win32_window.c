@@ -35,6 +35,249 @@
 #include <assert.h>
 #include <windowsx.h>
 #include <shellapi.h>
+//#include <ntstatus.h>
+//#include <hidclass.h>
+//#include <hidusage.h>
+//#include <hidpi.h>
+
+
+GLFWbool MultiAxisControllerDevice_getButtonCaps(
+    MultiAxisControllerDevice* device
+)
+{
+    USHORT count = device->topLevelCaps.NumberInputButtonCaps;
+    if (count == 0) {
+        return GLFW_TRUE;
+    }
+    device->inputButtonCaps = _glfw_calloc(count, sizeof(HIDP_BUTTON_CAPS));
+    device->inputButtonCapCount = count;
+
+    if (HidP_GetButtonCaps(HidP_Input, device->inputButtonCaps, &count, device->topLevelPreparsedData) != HIDP_STATUS_SUCCESS) {
+        _glfwInputError(GLFW_PLATFORM_ERROR, "HidP_GetButtonCaps failed");
+        return GLFW_FALSE;
+    }
+
+    // for each button
+    for (USHORT i = 0; i < count; ++i) {
+        HIDP_BUTTON_CAPS* cap = &device->inputButtonCaps[i];
+        int addedToExistingReport = 0;
+        for (int j = 0; j < device->reportCount; ++j) {
+            MultiAxisControllerReport* report = &device->reports[j];
+            if (report->id == cap->ReportID) {
+                report->buttonCaps = realloc(report->buttonCaps, (report->buttonCapCount + 1) * sizeof(HIDP_BUTTON_CAPS));
+                memcpy(&report->buttonCaps[report->buttonCapCount], cap, sizeof(HIDP_BUTTON_CAPS));
+                ++report->buttonCapCount;
+                addedToExistingReport = 1;
+                break;
+            }
+        }
+        if (addedToExistingReport == 0) {
+            device->reports = realloc(device->reports, (device->reportCount + 1) * sizeof(MultiAxisControllerReport));
+            MultiAxisControllerReport* report = &device->reports[device->reportCount];
+            memset(report, 0, sizeof(MultiAxisControllerReport));
+            memcpy(&report->buttonCaps[report->buttonCapCount], cap, sizeof(HIDP_BUTTON_CAPS));
+            ++report->buttonCapCount;
+        }
+    }
+
+    return GLFW_TRUE;
+}
+
+GLFWbool MultiAxisControllerDevice_getValueCaps(
+    MultiAxisControllerDevice* device
+)
+{
+    USHORT count = device->topLevelCaps.NumberInputValueCaps;
+    if (count == 0) {
+        return GLFW_TRUE;
+    }
+    device->inputValueCaps = _glfw_calloc(count, sizeof(HIDP_VALUE_CAPS));
+    device->inputValueCapCount = count;
+
+    if (HidP_GetValueCaps(HidP_Input, device->inputValueCaps, &count, device->topLevelPreparsedData) != HIDP_STATUS_SUCCESS) {
+        return GLFW_FALSE;
+    }
+    for (USHORT i = 0; i < count; ++i) {
+        HIDP_VALUE_CAPS* cap = &device->inputValueCaps[i];
+        int addedToExistingReport = 0;
+        for (int j = 0; j < device->reportCount; ++j) {
+            MultiAxisControllerReport* report = &device->reports[j];
+            if (report->id == cap->ReportID) {
+                report->valueCaps = realloc(report->valueCaps, (report->valueCapCount + 1) * sizeof(HIDP_VALUE_CAPS));
+                memcpy(&report->valueCaps[report->valueCapCount], cap, sizeof(HIDP_VALUE_CAPS));
+                ++report->valueCapCount;
+                addedToExistingReport = 1;
+                break;
+            }
+        }
+        if (addedToExistingReport == 0) {
+            device->reports = realloc(device->reports, (device->reportCount + 1) * sizeof(MultiAxisControllerReport));
+            MultiAxisControllerReport* report = &device->reports[device->reportCount];
+            memset(report, 0, sizeof(MultiAxisControllerReport));
+            memcpy(&report->valueCaps[report->valueCapCount], cap, sizeof(HIDP_VALUE_CAPS));
+            ++report->valueCapCount;
+        }
+    }
+    return GLFW_TRUE;
+}
+
+GLFWbool MultiAxisControllerDevice_Init(
+    MultiAxisControllerDevice* device,
+    HANDLE                     deviceHandle
+)
+{
+    memset(device, 0, sizeof(MultiAxisControllerDevice));
+    device->deviceHandle = deviceHandle;
+
+    UINT infoSize = sizeof(RID_DEVICE_INFO);
+    device->deviceInfo.cbSize = infoSize;
+
+    if (GetRawInputDeviceInfo(deviceHandle, RIDI_DEVICEINFO, &device->deviceInfo, &infoSize) < 0) {
+        return GLFW_FALSE;
+    };
+
+    if (device->deviceInfo.dwType != RIM_TYPEHID) {
+        return GLFW_FALSE;
+    }
+
+    // device->deviceInfo.hid.dwVendorId,
+    // device->deviceInfo.hid.dwProductId,
+    // device->deviceInfo.hid.dwVersionNumber,
+    // device->deviceInfo.hid.usUsagePage,
+    // device->deviceInfo.hid.usUsage
+
+    /* Get top level info */
+    UINT preparsedDataSize = 0;
+    if (GetRawInputDeviceInfo(device->deviceHandle, RIDI_PREPARSEDDATA, NULL, &preparsedDataSize) < 0) {
+        return GLFW_FALSE;
+    }
+    if (preparsedDataSize == 0) {
+        return GLFW_FALSE;
+    }
+
+    device->topLevelPreparsedDataBuffer = malloc(preparsedDataSize);
+    if (GetRawInputDeviceInfo(device->deviceHandle, RIDI_PREPARSEDDATA, device->topLevelPreparsedDataBuffer, &preparsedDataSize) < 0) {
+        return GLFW_FALSE;
+    }
+
+    device->topLevelPreparsedData = (PHIDP_PREPARSED_DATA)(device->topLevelPreparsedDataBuffer);
+    if (HidP_GetCaps(device->topLevelPreparsedData, &device->topLevelCaps) != HIDP_STATUS_SUCCESS) {
+        return GLFW_FALSE;
+    }
+
+    if (device->topLevelCaps.NumberLinkCollectionNodes > 0) {
+        device->linkCollections = _glfw_calloc(device->topLevelCaps.NumberLinkCollectionNodes, sizeof(HIDP_LINK_COLLECTION_NODE));
+        device->linkCollectionCount = device->topLevelCaps.NumberLinkCollectionNodes;
+        ULONG count = (ULONG)(device->linkCollectionCount);
+        if (HidP_GetLinkCollectionNodes(device->linkCollections, &count, device->topLevelPreparsedData) != HIDP_STATUS_SUCCESS) {
+            return GLFW_FALSE;
+        }
+    }
+
+    MultiAxisControllerDevice_getButtonCaps(device);
+    MultiAxisControllerDevice_getValueCaps(device);
+
+    device->buttonUsages = _glfw_calloc(device->inputButtonCapCount, sizeof(USAGE));
+
+    device->joystick = _glfwAllocJoystick("MultiAxisController", "", 6, device->inputButtonCapCount, 0);
+    _glfwInputJoystick(device->joystick, GLFW_CONNECTED);
+
+    return GLFW_TRUE;
+}
+
+void MultiAxisControllerReport_parse(
+    MultiAxisControllerDevice* device,
+    MultiAxisControllerReport* report,
+    RAWINPUT*                  raw,
+    PHIDP_PREPARSED_DATA       preparsedData
+)
+{
+    for (int i = 0; i < report->buttonCapCount; ++i) {
+        HIDP_BUTTON_CAPS* cap = &report->buttonCaps[i];
+        long newButtonState = 0;
+        if (cap->IsRange){
+            ULONG buttonCount = cap->Range.UsageMax - cap->Range.UsageMin + 1;
+            if (buttonCount > (ULONG)(device->inputButtonCapCount)) { // paranoid
+                buttonCount = device->inputButtonCapCount;
+            }
+            ULONG UsageLength = (ULONG)(buttonCount);
+
+            if (
+                HidP_GetUsages(
+                    HidP_Input,
+                    cap->UsagePage,
+                    cap->LinkCollection,
+                    device->buttonUsages,
+                    &UsageLength,
+                    preparsedData,
+                    (PCHAR)(&raw->data.hid.bRawData[0]),
+                    raw->data.hid.dwSizeHid
+                )
+            ) {
+                for (ULONG i = 0; i < buttonCount; i++) {
+                    int button = device->buttonUsages[i] - cap->Range.UsageMin;
+                    long buttonBit = 1 << button;
+                    newButtonState |= buttonBit;
+                }
+            }
+        }
+        if (newButtonState != device->buttonState) {
+            for (int button = 0; button < 31; ++button) {
+                long oldBit = (device->buttonState >> button) & 0x1;
+                long newBit = (newButtonState >> button) & 0x1;
+                if (oldBit != newBit) {
+                    char value = (newBit == 1);
+                    _glfwInputJoystickButton(device->joystick, button, value);
+                }
+            }
+            device->buttonState = newButtonState;
+        }
+    }
+
+    for (int i = 0; i < report->valueCapCount; ++i) {
+        HIDP_VALUE_CAPS* cap = &report->valueCaps[i];
+        LONG usageValue = 0;
+        HidP_GetScaledUsageValue(
+            HidP_Input,
+            cap->UsagePage,
+            cap->LinkCollection,
+            cap->NotRange.Usage,
+            &usageValue,
+            preparsedData,
+            (PCHAR)(&raw->data.hid.bRawData[0]),
+            raw->data.hid.dwSizeHid
+        );
+        switch (cap->NotRange.Usage) {
+            case HID_USAGE_GENERIC_X : _glfwInputJoystickAxis(device->joystick, device->axisTX, (float)(usageValue)); break;
+            case HID_USAGE_GENERIC_Y : _glfwInputJoystickAxis(device->joystick, device->axisTY, (float)(usageValue)); break;
+            case HID_USAGE_GENERIC_Z : _glfwInputJoystickAxis(device->joystick, device->axisTZ, (float)(usageValue)); break;
+            case HID_USAGE_GENERIC_RX: _glfwInputJoystickAxis(device->joystick, device->axisRX, (float)(usageValue)); break;
+            case HID_USAGE_GENERIC_RY: _glfwInputJoystickAxis(device->joystick, device->axisRY, (float)(usageValue)); break;
+            case HID_USAGE_GENERIC_RZ: _glfwInputJoystickAxis(device->joystick, device->axisRZ, (float)(usageValue)); break;
+            default: break;
+        }
+    }
+}
+
+GLFWbool MultiAxisControllerDevice_Parse(
+    MultiAxisControllerDevice* device,
+    RAWINPUT* raw
+)
+{
+    BYTE const* data = raw->data.hid.bRawData;
+
+    BYTE reportId = data[0];
+    for (int i = 0; i < device->reportCount; ++i) {
+        MultiAxisControllerReport* report = &device->reports[i];
+        if (report->id == reportId) {
+            MultiAxisControllerReport_parse(device, report, raw, device->topLevelPreparsedData);
+            return GLFW_TRUE;
+        }
+    }
+    return GLFW_FALSE;
+}
+
+
 
 // Returns the window style for the specified window
 //
@@ -266,6 +509,19 @@ static void releaseCursor(void)
 static void enableRawMouseMotion(_GLFWwindow* window)
 {
     const RAWINPUTDEVICE rid = { 0x01, 0x02, 0, window->win32.handle };
+
+    if (!RegisterRawInputDevices(&rid, 1, sizeof(rid)))
+    {
+        _glfwInputErrorWin32(GLFW_PLATFORM_ERROR,
+                             "Win32: Failed to register raw input device");
+    }
+}
+
+// Enables WM_INPUT messages for the mouse for the specified window
+//
+static void enableRawMultiAxisController(_GLFWwindow* window)
+{
+	const RAWINPUTDEVICE rid = { HID_USAGE_PAGE_GENERIC, HID_USAGE_GENERIC_MULTI_AXIS_CONTROLLER, 0, window->win32.handle };
 
     if (!RegisterRawInputDevices(&rid, 1, sizeof(rid)))
     {
@@ -904,10 +1160,11 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
             RAWINPUT* data = NULL;
             int dx, dy;
 
-            if (_glfw.win32.disabledCursorWindow != window)
-                break;
-            if (!window->rawMouseMotion)
-                break;
+            // TODO
+            // if (_glfw.win32.disabledCursorWindow != window)
+            //     break;
+            // if (!window->rawMouseMotion)
+            //     break;
 
             GetRawInputData(ri, RID_INPUT, NULL, &size, sizeof(RAWINPUTHEADER));
             if (size > (UINT) _glfw.win32.rawInputSize)
@@ -928,43 +1185,75 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
             }
 
             data = _glfw.win32.rawInput;
-            if (data->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE)
+
+            switch (data->header.dwType)
             {
-                POINT pos = {0};
-                int width, height;
-
-                if (data->data.mouse.usFlags & MOUSE_VIRTUAL_DESKTOP)
+                case RIM_TYPEHID:
                 {
-                    pos.x += GetSystemMetrics(SM_XVIRTUALSCREEN);
-                    pos.y += GetSystemMetrics(SM_YVIRTUALSCREEN);
-                    width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-                    height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+                    const HANDLE deviceHandle = data->header.hDevice;
+                    GLFWbool handled = GLFW_FALSE;
+                    for (int i = 0; i < _glfw.win32.multiaxiscontrollerDeviceCount; ++i) {
+                        MultiAxisControllerDevice* device = &_glfw.win32.multiaxiscontrollerDevices[i];
+                        if (device->deviceHandle == deviceHandle) {
+                            MultiAxisControllerDevice_Parse(device, data);
+                            handled = true;
+                            break;
+                        }
+                    }
+                    if (handled == GLFW_FALSE) {
+                        _glfw.win32.multiaxiscontrollerDevices = realloc(
+                            _glfw.win32.multiaxiscontrollerDevices,
+                            (_glfw.win32.multiaxiscontrollerDeviceCount + 1) * sizeof(MultiAxisControllerDevice)
+                        );
+                        MultiAxisControllerDevice* device = &_glfw.win32.multiaxiscontrollerDevices[_glfw.win32.multiaxiscontrollerDeviceCount];
+                        MultiAxisControllerDevice_Init(device, deviceHandle);
+                        _glfw.win32.multiaxiscontrollerDeviceCount++;
+                        MultiAxisControllerDevice_Parse(device, data);
+                    }
                 }
-                else
+
+                case RIM_TYPEMOUSE:
                 {
-                    width = GetSystemMetrics(SM_CXSCREEN);
-                    height = GetSystemMetrics(SM_CYSCREEN);
+                    if (data->data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE)
+                    {
+                        POINT pos = {0};
+                        int width, height;
+
+                        if (data->data.mouse.usFlags & MOUSE_VIRTUAL_DESKTOP)
+                        {
+                            pos.x += GetSystemMetrics(SM_XVIRTUALSCREEN);
+                            pos.y += GetSystemMetrics(SM_YVIRTUALSCREEN);
+                            width = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+                            height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+                        }
+                        else
+                        {
+                            width = GetSystemMetrics(SM_CXSCREEN);
+                            height = GetSystemMetrics(SM_CYSCREEN);
+                        }
+
+                        pos.x += (int) ((data->data.mouse.lLastX / 65535.f) * width);
+                        pos.y += (int) ((data->data.mouse.lLastY / 65535.f) * height);
+                        ScreenToClient(window->win32.handle, &pos);
+
+                        dx = pos.x - window->win32.lastCursorPosX;
+                        dy = pos.y - window->win32.lastCursorPosY;
+                    }
+                    else
+                    {
+                        dx = data->data.mouse.lLastX;
+                        dy = data->data.mouse.lLastY;
+                    }
+
+                    _glfwInputCursorPos(window,
+                                        window->virtualCursorPosX + dx,
+                                        window->virtualCursorPosY + dy);
+
+                    window->win32.lastCursorPosX += dx;
+                    window->win32.lastCursorPosY += dy;
+                    break;
                 }
-
-                pos.x += (int) ((data->data.mouse.lLastX / 65535.f) * width);
-                pos.y += (int) ((data->data.mouse.lLastY / 65535.f) * height);
-                ScreenToClient(window->win32.handle, &pos);
-
-                dx = pos.x - window->win32.lastCursorPosX;
-                dy = pos.y - window->win32.lastCursorPosY;
             }
-            else
-            {
-                dx = data->data.mouse.lLastX;
-                dy = data->data.mouse.lLastY;
-            }
-
-            _glfwInputCursorPos(window,
-                                window->virtualCursorPosX + dx,
-                                window->virtualCursorPosY + dy);
-
-            window->win32.lastCursorPosX += dx;
-            window->win32.lastCursorPosY += dy;
             break;
         }
 
@@ -1530,6 +1819,8 @@ GLFWbool _glfwCreateWindowWin32(_GLFWwindow* window,
 
     if (wndconfig->mousePassthrough)
         _glfwSetWindowMousePassthroughWin32(window, GLFW_TRUE);
+
+    enableRawMultiAxisController(window);
 
     if (window->monitor)
     {
