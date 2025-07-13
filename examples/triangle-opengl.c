@@ -86,8 +86,8 @@ int main(void)
     if (!glfwInit())
         exit(EXIT_FAILURE);
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(640, 480, "OpenGL Triangle", NULL, NULL);
@@ -102,6 +102,32 @@ int main(void)
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc)(glfwGetProcAddress));
     glfwSwapInterval(1);
+
+    GLuint array_texture = 0;
+    GLuint texture_views[4] = { 0, 0, 0, 0 };
+    GLuint framebuffers[4] = { 0, 0, 0, 0 };
+    int texture_width = 32;
+    int texture_height = 32;
+    glCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &array_texture);
+    printf("array_texture = %u\n", array_texture);
+    glTextureStorage3D(array_texture, 1, GL_RGBA8, texture_width, texture_height, 4);
+    glGenTextures(4, &texture_views[0]);
+    glCreateFramebuffers(4, &framebuffers[0]);
+    for (int i = 0; i < 4; ++i)
+    {
+        glTextureView(texture_views[i], GL_TEXTURE_2D, array_texture, GL_RGBA8, 0, 1, i, 1);
+        glNamedFramebufferTexture(framebuffers[i], GL_COLOR_ATTACHMENT0, texture_views[i], 0);
+        printf("texture_views[%d] = %u\n", i, texture_views[i]);
+        printf("framebuffers[%d] = %u\n", i, framebuffers[i]);
+    }
+    {
+        GLenum error_code = glGetError();
+        if (error_code != GL_NO_ERROR)
+        {
+            printf("error");
+            abort();
+        }
+    }
 
     // NOTE: OpenGL error checks have been omitted for brevity
 
@@ -137,6 +163,7 @@ int main(void)
     glVertexAttribPointer(vcol_location, 3, GL_FLOAT, GL_FALSE,
                           sizeof(Vertex), (void*) offsetof(Vertex, col));
 
+    glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     while (!glfwWindowShouldClose(window))
     {
         int width, height;
@@ -156,6 +183,45 @@ int main(void)
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) &mvp);
         glBindVertexArray(vertex_array);
         glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        unsigned char pink [4] = { 0xff, 0x44, 0x88, 0xff };
+        unsigned char red  [4] = { 0xff, 0x00, 0x00, 0xff };
+        unsigned char green[4] = { 0x00, 0xff, 0x00, 0xff };
+        unsigned char blue [4] = { 0x00, 0x00, 0xff, 0xff };
+        unsigned char white[4] = { 0xff, 0xff, 0xff, 0xff };
+        glClearTexImage(array_texture,    0, GL_RGBA, GL_UNSIGNED_BYTE, &pink [0]);
+        glClearTexImage(texture_views[0], 0, GL_RGBA, GL_UNSIGNED_BYTE, &red  [0]);
+        glClearTexImage(texture_views[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, &green[0]);
+        glClearTexImage(texture_views[2], 0, GL_RGBA, GL_UNSIGNED_BYTE, &blue [0]);
+        glClearTexImage(texture_views[3], 0, GL_RGBA, GL_UNSIGNED_BYTE, &white[0]);
+
+        for (int i = 0; i < 4; ++i) {
+            glBlitNamedFramebuffer(
+                framebuffers[i],          // read framebuffer
+                0,                        // draw framebuffer
+
+                0,                        // srcX0
+                0,                        // srcY0
+                texture_width,            // srcX1
+                texture_height,           // srcY1
+
+                (i) * texture_width,      // dstX0
+                0,                        // dstY0
+                (i + 1) * texture_width,  // dstX1
+                texture_height,           // dstY1
+
+                GL_COLOR_BUFFER_BIT,      // mask
+                GL_NEAREST                // filter
+            );
+        }
+        {
+            GLenum error_code = glGetError();
+            if (error_code != GL_NO_ERROR)
+            {
+                printf("error");
+                abort();
+            }
+        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();
