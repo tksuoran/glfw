@@ -23,8 +23,7 @@
 //
 //========================================================================
 
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
+#include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -80,7 +79,7 @@ int main(int argc, char** argv)
         glfwSetInputMode(windows[i], GLFW_STICKY_KEYS, GLFW_TRUE);
 
         glfwMakeContextCurrent(windows[i]);
-        gladLoadGL(glfwGetProcAddress);
+        gladLoadGLLoader((GLADloadproc)(glfwGetProcAddress));
         glClearColor(colors[i].r, colors[i].g, colors[i].b, 1.f);
     }
 
