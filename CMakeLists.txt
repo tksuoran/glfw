@@ -96,6 +96,13 @@ write_basic_package_version_file(src/glfw3ConfigVersion.cmake
 #--------------------------------------------------------------------
 add_subdirectory(src)
 
+add_library(glad_gl
+    "${GLFW_SOURCE_DIR}/deps/glad_gl/src/glad.c"
+    "${GLFW_SOURCE_DIR}/deps/glad_gl/include/glad/glad.h"
+)
+target_include_directories(glad_gl PUBLIC "${GLFW_SOURCE_DIR}/deps/glad_gl/include")
+add_library(glad::gl ALIAS glad_gl)
+
 if (GLFW_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()

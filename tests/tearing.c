@@ -28,8 +28,7 @@
 //
 //========================================================================
 
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
+#include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -177,7 +176,7 @@ int main(int argc, char** argv)
     }
 
     glfwMakeContextCurrent(window);
-    gladLoadGL(glfwGetProcAddress);
+    gladLoadGLLoader(glfwGetProcAddress);
     set_swap_interval(window, 0);
 
     last_time = glfwGetTime();

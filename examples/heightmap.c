@@ -29,8 +29,7 @@
 #include <assert.h>
 #include <stddef.h>
 
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
+#include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -434,7 +433,7 @@ int main(int argc, char** argv)
     glfwSetKeyCallback(window, key_callback);
 
     glfwMakeContextCurrent(window);
-    gladLoadGL(glfwGetProcAddress);
+    gladLoadGLLoader(glfwGetProcAddress);
 
     /* Prepare opengl resources for rendering */
     shader_program = make_shader_program(vertex_shader_text, fragment_shader_text);

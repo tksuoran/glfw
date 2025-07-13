@@ -28,8 +28,7 @@
 //
 //========================================================================
 
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
+#include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -130,7 +129,7 @@ int main(int argc, char** argv)
     }
 
     glfwMakeContextCurrent(window);
-    gladLoadGL(glfwGetProcAddress);
+    gladLoadGLLoader(glfwGetProcAddress);
     glfwSwapInterval(1);
 
     nk = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS);

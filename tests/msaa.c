@@ -29,8 +29,7 @@
 //
 //========================================================================
 
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
+#include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -143,7 +142,7 @@ int main(int argc, char** argv)
     glfwSetKeyCallback(window, key_callback);
 
     glfwMakeContextCurrent(window);
-    gladLoadGL(glfwGetProcAddress);
+    gladLoadGLLoader(glfwGetProcAddress);
     glfwSwapInterval(1);
 
     glGetIntegerv(GL_SAMPLES, &samples);

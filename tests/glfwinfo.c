@@ -23,8 +23,7 @@
 //
 //========================================================================
 
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
+#include <glad/glad.h>
 #define GLAD_VULKAN_IMPLEMENTATION
 #include <glad/vulkan.h>
 #define GLFW_INCLUDE_NONE
@@ -715,7 +714,7 @@ int main(int argc, char** argv)
     if (window)
     {
         glfwMakeContextCurrent(window);
-        gladLoadGL(glfwGetProcAddress);
+        gladLoadGLLoader(glfwGetProcAddress);
 
         const GLenum error = glGetError();
         if (error != GL_NO_ERROR)

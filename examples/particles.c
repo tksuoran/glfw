@@ -39,8 +39,7 @@
 #include <getopt.h>
 #include <linmath.h>
 
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
+#include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -996,7 +995,7 @@ int main(int argc, char** argv)
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glfwMakeContextCurrent(window);
-    gladLoadGL(glfwGetProcAddress);
+    gladLoadGLLoader(glfwGetProcAddress);
     glfwSwapInterval(1);
 
     glfwSetFramebufferSizeCallback(window, resize_callback);
