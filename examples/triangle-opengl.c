@@ -86,8 +86,8 @@ int main(void)
     if (!glfwInit())
         exit(EXIT_FAILURE);
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(640, 480, "OpenGL Triangle", NULL, NULL);
@@ -102,6 +102,108 @@ int main(void)
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     glfwSwapInterval(1);
+
+    GLenum gl_error = glGetError();
+    if (gl_error != GL_NO_ERROR) {
+        exit(EXIT_FAILURE);
+    }
+    // Prepare staging buffer
+    GLuint staging_buffer = 0;
+    size_t float_count = 16384;
+    size_t byte_count = sizeof(float) * float_count;
+    void* data = malloc(byte_count);
+    memset(data, 0, byte_count);
+    glCreateBuffers(1, &staging_buffer);
+    glNamedBufferStorage(staging_buffer, byte_count, data, GL_CLIENT_STORAGE_BIT);
+
+    // Prepare 3 buffers for vertex attributes
+    GLuint buffers[3] = { 0, 0, 0 };
+    glCreateBuffers(3, &buffers[0]);
+    for (size_t i = 0; i < 3; ++i) {
+        glNamedBufferStorage(buffers[i], byte_count, NULL, 0);
+        glCopyNamedBufferSubData(staging_buffer, buffers[i], 0, 0, byte_count);
+    }
+
+    // Prepare VAO
+    GLuint vaobj = 0;
+    glCreateVertexArrays(1, &vaobj);
+    glVertexArrayAttribBinding(vaobj, 0, 0);
+    glVertexArrayAttribBinding(vaobj, 1, 1);
+    glVertexArrayAttribBinding(vaobj, 2, 2);
+    glVertexArrayVertexBuffer(vaobj, 0, buffers[0], 0, 16);
+    glVertexArrayVertexBuffer(vaobj, 1, buffers[1], 0, 16);
+    glVertexArrayVertexBuffer(vaobj, 2, buffers[2], 0, 16);
+
+    gl_error = glGetError();
+    if (gl_error != GL_NO_ERROR) {
+        printf("Warning: GL error before query: %04x.", gl_error);
+    }
+
+    // Query VAO
+    GLuint query_vertex_attrib_vertex_array_buffer_bindings[3] = { 0, 0, 0 };
+    GLuint query_vertex_attrib_bindings[3] = { 0, 0, 0 };
+    GLuint query_vertex_binding_buffers[3] = { 0, 0, 0 };
+    int error_count = 0;
+    int mismatch_count = 0;
+    for (GLuint index = 0; index < 3; ++index) {
+        // Query attribute binding
+        glGetVertexArrayIndexediv(vaobj, index, GL_VERTEX_ATTRIB_BINDING, &query_vertex_attrib_bindings[index]);
+        gl_error = glGetError();
+        if (gl_error != GL_NO_ERROR) {
+            printf(
+                "glGetVertexArrayIndexediv(vaobj = %u, index = %u, pname = GL_VERTEX_ATTRIB_BINDING, "
+                "param = %p) failed with error %04x.",
+                vaobj, index, &query_vertex_attrib_bindings[index], gl_error
+            );
+            ++error_count;
+        } else {
+            printf("Attribute %u expected binding %u found binding %u\n", index, index, query_vertex_attrib_bindings[index]);
+            if (query_vertex_attrib_bindings[index] != index) {
+                ++mismatch_count;
+            }
+        }
+
+        // Query binding buffer
+        glGetVertexArrayIndexediv(vaobj, index, GL_VERTEX_BINDING_BUFFER, &query_vertex_binding_buffers[index]);
+        gl_error = glGetError();
+        if (gl_error != GL_NO_ERROR) {
+            printf(
+                "glGetVertexArrayIndexediv(vaobj = %u, index = %u, pname = GL_VERTEX_ATTRIB_BINDING, "
+                "param = %p) failed with error %04x.",
+                vaobj, index, &query_vertex_binding_buffers[index], gl_error
+            );
+            ++error_count;
+        } else {
+            printf("Binding %u expected buffer %u found buffer %u\n", index, buffers[index], query_vertex_binding_buffers[index]);
+            if (query_vertex_binding_buffers[index] != buffers[index]) {
+                ++mismatch_count;
+            }
+        }
+
+        // Query attribute buffer (legacy API)
+        glGetVertexArrayIndexediv(vaobj, index, GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &query_vertex_attrib_vertex_array_buffer_bindings[index]);
+        gl_error = glGetError();
+        if (gl_error != GL_NO_ERROR) {
+            printf(
+                "glGetVertexArrayIndexediv(vaobj = %u, index = %u, pname = GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, "
+                "param = %p) failed with error %04x.",
+                vaobj, index, &query_vertex_attrib_vertex_array_buffer_bindings[index], gl_error
+            );
+            ++error_count;
+        } else {
+            printf(
+                "Attribute %u expected buffer %u found buffer %u\n",
+                index, buffers[index], query_vertex_attrib_vertex_array_buffer_bindings[index]
+            );
+            if (query_vertex_attrib_vertex_array_buffer_bindings[index] != buffers[index]) {
+                ++mismatch_count;
+            }
+        }
+    }
+
+    if ((error_count > 0) || (mismatch_count > 0)) {
+        exit(EXIT_FAILURE);
+    }
 
     // NOTE: OpenGL error checks have been omitted for brevity
 
