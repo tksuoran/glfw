@@ -92,7 +92,7 @@ int main(void)
     }
 
     glfwMakeContextCurrent(window);
-    gladLoadGLLoader(glfwGetProcAddress);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     glfwSetKeyCallback(window, key_callback);
 
     if (thrd_create(&thread, thread_main, NULL) != thrd_success)

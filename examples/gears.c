@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
     glfwSetKeyCallback(window, key);
 
     glfwMakeContextCurrent(window);
-    gladLoadGLLoader(glfwGetProcAddress);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     glfwSwapInterval( 1 );
 
     glfwGetFramebufferSize(window, &width, &height);

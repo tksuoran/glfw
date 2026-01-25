@@ -651,7 +651,7 @@ int main(int argc, char** argv)
         glfwSetDropCallback(slots[i].window, drop_callback);
 
         glfwMakeContextCurrent(slots[i].window);
-        gladLoadGLLoader(glfwGetProcAddress);
+        gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
         glfwSwapBuffers(slots[i].window);
     }
 

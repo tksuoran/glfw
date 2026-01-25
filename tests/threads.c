@@ -113,7 +113,7 @@ int main(void)
     }
 
     glfwMakeContextCurrent(threads[0].window);
-    gladLoadGLLoader(glfwGetProcAddress);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     glfwMakeContextCurrent(NULL);
 
     for (i = 0;  i < count;  i++)

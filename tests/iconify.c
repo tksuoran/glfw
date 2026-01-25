@@ -192,7 +192,7 @@ static GLFWwindow* create_window(GLFWmonitor* monitor)
     }
 
     glfwMakeContextCurrent(window);
-    gladLoadGLLoader(glfwGetProcAddress);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
     return window;
 }

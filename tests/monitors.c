@@ -167,7 +167,7 @@ static void test_modes(GLFWmonitor* monitor)
         glfwSetKeyCallback(window, key_callback);
 
         glfwMakeContextCurrent(window);
-        gladLoadGLLoader(glfwGetProcAddress);
+        gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
         glfwSwapInterval(1);
 
         glfwSetTime(0.0);

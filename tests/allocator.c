@@ -125,7 +125,7 @@ int main(void)
     }
 
     CALL(glfwMakeContextCurrent)(window);
-    gladLoadGLLoader(glfwGetProcAddress);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
     CALL(glfwSwapInterval)(1);
 
     while (!CALL(glfwWindowShouldClose)(window))

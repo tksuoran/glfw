@@ -714,7 +714,7 @@ int main(int argc, char** argv)
     if (window)
     {
         glfwMakeContextCurrent(window);
-        gladLoadGLLoader(glfwGetProcAddress);
+        gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
         const GLenum error = glGetError();
         if (error != GL_NO_ERROR)
